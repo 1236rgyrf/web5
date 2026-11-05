@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Арена Гладиаторов</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Georgia', serif;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    user-select: none;
+}
+
+.screen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.hidden { display: none !important; }
+
+/* ===== СТАРТ ===== */
+#start-screen { background-image: url('assets/start_screen.jpg'); }
+#start-btn {
+    background: none; border: none; padding: 0; cursor: pointer;
+    transition: transform 0.2s;
+}
+#start-btn img {
+    width: 340px; display: block;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+}
+#start-btn:hover  { transform: scale(1.05); }
+#start-btn:active { transform: scale(0.97); }
+
+.menu-btn {
+    margin-top: 30px;
+    padding: 12px 40px;
+    font-family: inherit;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: #f5e6c8;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid #b8860b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.menu-btn:hover { background: rgba(80,20,20,0.8); }
+
+/* ===== НАСТРОЙКИ ===== */
+#settings-screen { background: #1a0a0a; }
+#settings-screen h1 {
+    font-size: 60px; letter-spacing: 10px;
+    color: #b8860b; margin-bottom: 50px;
+    text-shadow: 0 0 20px #8b0000;
+}
+.settings-panel {
+    display: flex; flex-direction: column; gap: 25px;
+    background: rgba(0,0,0,0.6);
+    padding: 40px 60px;
+    border: 2px solid #b8860b;
+    border-radius: 8px;
+    margin-bottom: 40px;
+}
+.setting-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 40px; font-size: 18px;
+}
+.setting-row select, .setting-row input[type="checkbox"] {
+    font-family: inherit; font-size: 16px;
+    padding: 6px 10px;
+    background: #2a0808; color: #f5e6c8;
+    border: 1px solid #b8860b; border-radius: 4px;
+    cursor: pointer;
+}
+
+/* ===== БОЙ ===== */
+#battle-screen {
+    background-image: url('assets/arena.jpg');
+    justify-content: flex-end;
+    padding: 20px;
+}
+.enemy-zone {
+    position: absolute;
+    bottom: 20vh;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+}
+#enemy-img {
+    width: 280px; height: auto;
+    filter: drop-shadow(0 12px 20px rgba(0,0,0,0.7));
+    transition: filter 0.2s;
+}
+.fighter-name {
+    font-size: 22px; letter-spacing: 3px;
+    text-shadow: 2px 2px 4px #000;
+    transition: color 0.3s;
+}
+.fighter-name.flash { animation: nameFlash 0.5s; }
+@keyframes nameFlash {
+    0%, 100% { color: #fff; }
+    50%      { color: #ff4444; }
+}
+
+/* Полоски HP */
+.bar-wrap {
+    width: 340px; height: 26px;
+    border: 2px solid #000;
+    background: #1a1a1a;
+    position: relative;
+    box-shadow: 0 0 12px rgba(0,0,0,0.8);
+}
+.bar-fill {
+    height: 100%; width: 100%;
+    background: linear-gradient(#e74c3c, #8b0000);
+    transition: width 0.4s ease;
+}
+.bar-text {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px; font-weight: bold;
+    text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+    pointer-events: none;
+}
+
+/* Анимация удара (shake) */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-15px) rotate(-4deg); }
+    40% { transform: translateX(15px) rotate(4deg); }
+    60% { transform: translateX(-10px) rotate(-3deg); }
+    80% { transform: translateX(10px) rotate(3deg); }
+}
+.shake { animation: shake 0.4s ease-in-out; }
+
+/* Цифры урона, всплывающие над бойцом */
+.damage-number {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 40px;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px #000, 0 0 12px currentColor;
+    animation: floatUp 0.9s ease-out forwards;
+    pointer-events: none;
+    z-index: 100;
+}
+@keyframes floatUp {
+    0%   { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -90px); }
+}
+
+/* Лог */
+#battle-log {
+    position: fixed;
+    top: 20px; left: 20px;
+    width: 280px; max-height: 220px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.65);
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    line-height: 1.5;
+    z-index: 10;
+    transition: opacity 0.3s;
+}
+#battle-log div { margin-bottom: 3px; }
+#battle-log div.system { color: #ffd700; font-weight: bold; }
+#battle-log div.damage { color: #ff8888; }
+#battle-log div.divider { color: #666; }
+
+/* Зона игрока */
+.player-zone {
+    position: relative;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 15px;
+}
+.actions {
+    display: flex; gap: 15px; align-items: center;
+}
+.action-btn {
+    padding: 14px 32px;
+    font-family: inherit; font-size: 18px;
+    letter-spacing: 2px;
+    color: #f5e6c8;
+    background: linear-gradient(#5a1e1e, #2a0808);
+    border: 2px solid #b8860b;
+    border-radius: 6px;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px #000;
+    transition: all 0.15s;
+    outline: none;
+}
+.action-btn:hover:not(:disabled) {
+    background: linear-gradient(#7a2e2e, #3a1010);
+    transform: translateY(-2px);
+}
+.action-btn:focus {
+    outline: 3px solid #ffd700;
+    outline-offset: 2px;
+    box-shadow: 0 0 20px rgba(255,215,0,0.6);
+}
+.action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ===== ПОРАЖЕНИЕ ===== */
+#defeat-screen { background: #000; }
+#defeat-screen h1 {
+    font-size: 110px; color: #c0392b;
+    letter-spacing: 14px;
+    text-shadow: 0 0 30px #8b0000, 0 0 60px #550000;
+    margin-bottom: 80px;
+}
+
+/* ===== ПОБЕДА ===== */
+#victory-screen {
+    background: #a01010;
+    padding: 40px;
+}
+.victory-frame {
+    width: 100%; height: 100%;
+    border: 10px solid #ffd700;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    box-shadow:
+        0 0 40px rgba(255,215,0,0.6),
+        inset 0 0 60px rgba(255,215,0,0.25);
+}
+.victory-text {
+    font-size: 130px; color: #ffd700;
+    letter-spacing: 20px;
+    text-shadow:
+        0 0 30px #ffd700,
+        0 0 60px #ffaa00,
+        4px 4px 10px #000;
+    margin-bottom: 70px;
+}
+
+/* Общий стиль кнопок финала */
+.final-btn {
+    padding: 16px 60px;
+    font-family: inherit; font-size: 22px;
+    letter-spacing: 4px;
+    color: #ddd; background: #1a1a1a;
+    border: 2px solid #555;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.final-btn:hover {
+    background: #333; color: #fff; border-color: #999;
+}
+</style>
+</head>
+<body>
+
+<!-- ===== СТАРТ ===== -->
+<div id="start-screen" class="screen">
+    <button id="start-btn">
+        <img src="assets/button.png" alt="Начать игру">
+    </button>
+    <button id="settings-btn" class="menu-btn">НАСТРОЙКИ</button>
+</div>
+
+<!-- ===== НАСТРОЙКИ ===== -->
+<div id="settings-screen" class="screen hidden">
+    <h1>НАСТРОЙКИ</h1>
+    <div class="settings-panel">
+        <label class="setting-row">
+            <span>Сложность врага:</span>
+            <select id="difficulty-select" name="difficulty">
+                <option value="easy">Лёгкая (сила 8)</option>
+                <option value="normal" selected>Обычная (сила 12)</option>
+                <option value="hard">Сложная (сила 18)</option>
+            </select>
+        </label>
+        <label class="setting-row">
+            <span>Показывать лог боя:</span>
+            <input type="checkbox" id="log-toggle" name="logToggle" checked>
+        </label>
+    </div>
+    <button id="back-btn" class="menu-btn">НАЗАД</button>
+</div>
+
+<!-- ===== БОЙ ===== -->
+<div id="battle-screen" class="screen hidden">
+    <div id="battle-log"></div>
+
+    <div class="enemy-zone">
+        <div class="fighter-name" id="enemy-name">ПРОТИВНИК</div>
+        <div class="bar-wrap">
+            <div class="bar-fill" id="enemy-hp-fill"></div>
+            <div class="bar-text" id="enemy-hp-text">80 / 80</div>
+        </div>
+        <img id="enemy-img" src="assets/enemy.png" alt="Противник">
+    </div>
+
+    <div class="player-zone">
+        <div class="fighter-name" id="player-name">ВЫ</div>
+        <div class="bar-wrap">
+            <div class="bar-fill" id="player-hp-fill"></div>
+            <div class="bar-text" id="player-hp-text">100 / 100</div>
+        </div>
+        <div class="actions" id="actions-box">
+            <button class="action-btn" id="attack-btn" data-action="attack" name="action" value="attack">АТАКА</button>
+            <button class="action-btn" id="defend-btn" data-action="defend" name="action" value="defend">ЗАЩИТА</button>
+            <button class="action-btn" id="skip-btn" data-action="skip" name="action" value="skip">ПРОПУСТИТЬ</button>
+        </div>
+        <div style="font-size: 12px; opacity: 0.6; margin-top: 6px;">
+            Подсказка: клавиши 1, 2, 3 — атака, защита, пропуск
+        </div>
+    </div>
+</div>
+
+<!-- ===== ПОРАЖЕНИЕ ===== -->
+<div id="defeat-screen" class="screen hidden">
+    <h1>ПОРАЖЕНИЕ</h1>
+    <button id="restart-btn" class="final-btn">ЗАНОВО</button>
+</div>
+
+<!-- ===== ПОБЕДА ===== -->
+<div id="victory-screen" class="screen hidden">
+    <div class="victory-frame">
+        <h1 class="victory-text">ПОБЕДА</h1>
+        <button id="victory-restart-btn" class="final-btn">ПРОДОЛЖИТЬ</button>
+    </div>
+</div>
+
+скку<script>
+
+// 1. ДОСТУП К ЭЛЕМЕНТАМ — РАЗНЫЕ МЕТОДЫ DOM API
+
+
+// getElementById
+const startScreen     = document.getElementById('start-screen');
+const battleScreen    = document.getElementById('battle-screen');
+const defeatScreen    = document.getElementById('defeat-screen');
+const victoryScreen   = document.getElementById('victory-screen');
+const settingsScreen  = document.getElementById('settings-screen');
+
+// querySelector — ищем по CSS-селектору
+const battleLog = document.querySelector('#battle-log');
+const actionsBox = document.querySelector('.actions');
+
+// getElementsByName — теперь реально используется!
+const allActionBtns = document.getElementsByName('action');   // живая HTMLCollection из 3 кнопок
+
+// getElementsByClassName — живая коллекция полосок
+const allBarFills = document.getElementsByClassName('bar-fill');
+
+// getElementsByTagName — все button в документе
+const allButtons = document.getElementsByTagName('button');
+
+// querySelectorAll — статичный NodeList всех кнопок действий
+const allActionBtnsStatic = document.querySelectorAll('.action-btn');
+
+// Навигация по дереву
+const attackBtn = document.getElementById('attack-btn');
+const defendBtn = document.getElementById('defend-btn');
+const skipBtn   = document.getElementById('skip-btn');
+
+console.log('--- getElementsByName ---');
+console.log('Кнопки действий через getElementsByName:', allActionBtns);
+console.log('Их количество:', allActionBtns.length);
+
+console.log('--- Навигация по DOM-дереву ---');
+console.log('parentNode кнопки АТАКА:', attackBtn.parentNode);
+console.log('firstChild .actions:', actionsBox.firstChild);
+console.log('lastChild .actions:', actionsBox.lastChild);
+console.log('nextSibling АТАКА:', attackBtn.nextSibling);
+console.log('previousSibling ЗАЩИТА:', defendBtn.previousSibling);
+
+console.log('--- Атрибуты ---');
+console.log('data-action у АТАКА:', attackBtn.getAttribute('data-action'));
+console.log('Есть ли id?', attackBtn.hasAttribute('id'));
+
+
+// 2. ДАННЫЕ ИГРОКА И ВРАГА
+
+
+const player = {
+    hp: 100, maxHp: 100,
+    strength: 15, defense: 5,
+    isDefending: false
+};
+
+const enemy = {
+    hp: 80, maxHp: 80,
+    strength: 12, defense: 3,
+    isDefending: false
+};
+
+const difficulties = {
+    easy:   { strength: 8,  maxHp: 60  },
+    normal: { strength: 12, maxHp: 80  },
+    hard:   { strength: 18, maxHp: 100 }
+};
+let currentDifficulty = 'normal';
+
+
+// 3. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ
+
+function showScreen(screen) {
+    [startScreen, battleScreen, defeatScreen, victoryScreen, settingsScreen]
+        .forEach(s => s.classList.add('hidden'));
+    screen.classList.remove('hidden');
+}
+
+
+// 4. ОБНОВЛЕНИЕ ПОЛОСОК HP + transitionend
+
+
+const playerHpFill = document.getElementById('player-hp-fill');
+const playerHpText = document.getElementById('player-hp-text');
+const enemyHpFill  = document.getElementById('enemy-hp-fill');
+const enemyHpText  = document.getElementById('enemy-hp-text');
+
+playerHpFill.addEventListener('transitionend', () => {
+    console.log('[transitionend] Полоска игрока закончила анимацию. HP =', player.hp);
+});
+enemyHpFill.addEventListener('transitionend', () => {
+    console.log('[transitionend] Полоска врага закончила анимацию. HP =', enemy.hp);
+});
+
+function updateHPBars() {
+    playerHpFill.style.width = (player.hp / player.maxHp * 100) + '%';
+    playerHpText.textContent = player.hp + ' / ' + player.maxHp;
+    enemyHpFill.style.width = (enemy.hp / enemy.maxHp * 100) + '%';
+    enemyHpText.textContent = enemy.hp + ' / ' + enemy.maxHp;
+}
+
+
+// 5. ЛОГ — append / prepend / insertBefore / replaceChild / remove
+
+
+function addLog(text, type = 'normal', atTop = false) {
+    const line = document.createElement('div');
+    line.textContent = '> ' + text;
+    if (type !== 'normal') line.classList.add(type);
+
+    if (atTop) {
+        battleLog.prepend(line);
+
+        const divider = document.createElement('div');
+        divider.className = 'divider';
+        divider.textContent = '───────────';
+        battleLog.insertBefore(divider, battleLog.children[1]);
+    } else {
+        battleLog.append(line);
+    }
+    battleLog.scrollTop = battleLog.scrollHeight;
+}
+
+function clearLog() {
+    while (battleLog.firstChild) {
+        const old = battleLog.firstChild;
+        const stub = document.createComment('cleared');
+        battleLog.replaceChild(stub, old);
+        battleLog.removeChild(stub); 
+    }
+}
+
+
+// 6. БЛОКИРОВКА КНОПОК — работа с атрибутом disabled
+
+
+function lockButtons() {
+    // allActionBtns — HTMLCollection из getElementsByName('action')
+    Array.from(allActionBtns).forEach(btn => btn.setAttribute('disabled', ''));
+}
+
+function unlockButtons() {
+    Array.from(allActionBtns).forEach(btn => {
+        if (btn.hasAttribute('disabled')) {
+            btn.removeAttribute('disabled');
+        }
+    });
+}
+
+// 7. РАСЧЁТ УРОНА
+
+
+function calcDamage(attacker, defender) {
+    let dmg = attacker.strength - defender.defense;
+    if (defender.isDefending) dmg = Math.floor(dmg / 2);
+    if (dmg < 1) dmg = 1;
+    return dmg;
+}
+
+// 8. АНИМАЦИИ + animationend
+
+
+const enemyImg    = document.getElementById('enemy-img');
+let   enemyNameEl = document.getElementById('enemy-name'); // let, потому что replaceWith
+const playerNameEl = document.getElementById('player-name');
+
+function shake(element) {
+    element.classList.add('shake');
+    element.addEventListener('animationend', () => {
+        element.classList.remove('shake');
+    }, { once: true });
+}
+
+function flashName(element) {
+    element.classList.add('flash');
+    element.addEventListener('animationend', () => {
+        element.classList.remove('flash');
+    }, { once: true });
+}
+
+function showDamageNumber(target, amount, color = '#ff4444') {
+    const num = document.createElement('div');
+    num.className = 'damage-number';
+    num.textContent = '-' + amount;
+    num.style.color = color;
+    target.appendChild(num);
+    setTimeout(() => num.remove(), 900);
+}
+
+// 9. ПОЛЬЗОВАТЕЛЬСКОЕ СОБЫТИЕ (CustomEvent)
+
+
+document.addEventListener('enemyDead', (event) => {
+    const info = event.detail;
+    addLog('=== Враг "' + info.name + '" повержен! ===', 'system');
+    addLog('Получено золота: ' + info.gold, 'system');
+    addLog('Получено опыта: ' + info.exp, 'system');
+
+    const deadLabel = document.createElement('div');
+    deadLabel.className = 'fighter-name';
+    deadLabel.id = 'enemy-name';
+    deadLabel.textContent = '★ ПОВЕРЖЕН ★';
+    deadLabel.style.color = '#ffd700';
+    deadLabel.style.textShadow = '0 0 20px #ffd700';
+
+    enemyNameEl.replaceWith(deadLabel);
+    enemyNameEl = deadLabel;
+
+    setTimeout(() => showScreen(victoryScreen), 1800);
+});
+
+document.addEventListener('playerDead', () => {
+    addLog('=== Вы погибли на арене ===', 'system');
+    setTimeout(() => showScreen(defeatScreen), 1800);
+});
+
+// 10. ХОД ИГРОКА — асинхронно через Promise
+
+function waitForPlayerAction() {
+    return new Promise(resolve => {
+        function onClick(event) {
+            const btn = event.target.closest('.action-btn');
+            if (!btn) return;
+
+            const attrNode = btn.getAttributeNode('data-action');
+            const action = attrNode ? attrNode.value : null;
+            console.log('[Attr-узел]', attrNode.name, '=', attrNode.value);
+
+            const processedAttr = document.createAttribute('data-processed');
+            processedAttr.value = 'true';
+            btn.setAttributeNode(processedAttr);
+            console.log('[Attr-узел] Добавлен атрибут:', processedAttr.name, '=', processedAttr.value);
+
+            cleanup();
+            resolve(action);
+        }
+
+        function onKey(event) {
+            let action = null;
+            if (event.key === '1' || event.key === 'a' || event.key === 'ф') action = 'attack';
+            if (event.key === '2' || event.key === 'd' || event.key === 'в') action = 'defend';
+            if (event.key === '3' || event.key === 's' || event.key === 'ы') action = 'skip';
+            if (!action) return;
+            event.preventDefault();
+            cleanup();
+            resolve(action);
+        }
+
+        function cleanup() {
+            actionsBox.removeEventListener('click', onClick);
+            document.removeEventListener('keydown', onKey);
+        }
+
+        actionsBox.addEventListener('click', onClick);
+        document.addEventListener('keydown', onKey);
+    });
+}
+
+// 11. ХОД ВРАГА
+
+function enemyTurn() {
+    const choice = Math.random() < 0.8 ? 'attack' : 'defend';
+
+    if (choice === 'attack') {
+        const dmg = calcDamage(enemy, player);
+        player.hp -= dmg;
+        if (player.hp < 0) player.hp = 0;
+        shake(playerNameEl);
+        flashName(playerNameEl);
+        showDamageNumber(document.querySelector('.player-zone'), dmg);
+        addLog('Враг ударил на ' + dmg + ' урона!', 'damage');
+    } else {
+        enemy.isDefending = true;
+        addLog('Враг встал в защиту.');
+    }
+
+    player.isDefending = false;
+    updateHPBars();
+}
+
+// 12. ГЛАВНЫЙ ЦИКЛ БОЯ (async / await)
+
+async function battleLoop() {
+    addLog('=== Бой начался! ===', 'system', true);
+
+    while (true) {
+        unlockButtons();
+        addLog('Ваш ход. Ждём...');
+        const action = await waitForPlayerAction();
+        lockButtons();
+
+        if (action === 'attack') {
+            const dmg = calcDamage(player, enemy);
+            enemy.isDefending = false;
+            enemy.hp -= dmg;
+            if (enemy.hp < 0) enemy.hp = 0;
+            shake(enemyImg);
+            flashName(enemyNameEl);
+            showDamageNumber(document.querySelector('.enemy-zone'), dmg, '#ff8888');
+            addLog('Вы ударили на ' + dmg + ' урона!');
+            updateHPBars();
+
+            if (enemy.hp <= 0) {
+                document.dispatchEvent(new CustomEvent('enemyDead', {
+                    detail: { name: 'Гладиатор', gold: 50, exp: 100 }
+                }));
+                return;
+            }
+        }
+        else if (action === 'defend') {
+            player.isDefending = true;
+            addLog('Вы встали в защиту.');
+        }
+        else if (action === 'skip') {
+            player.isDefending = false;
+            addLog('Вы пропустили ход.');
+        }
+
+        await new Promise(r => setTimeout(r, 1200));
+        enemyTurn();
+
+        if (player.hp <= 0) {
+            document.dispatchEvent(new CustomEvent('playerDead'));
+            return;
+        }
+    }
+}
+
+// 13. СТАРТ БОЯ
+
+
+function startBattle() {
+    const freshLabel = document.createElement('div');
+    freshLabel.className = 'fighter-name';
+    freshLabel.id = 'enemy-name';
+    freshLabel.textContent = 'ПРОТИВНИК';
+    enemyNameEl.replaceWith(freshLabel);
+    enemyNameEl = freshLabel;
+
+    player.hp = player.maxHp;
+    player.isDefending = false;
+    enemy.isDefending = false;
+
+    const diff = difficulties[currentDifficulty];
+    enemy.maxHp = diff.maxHp;
+    enemy.hp = diff.maxHp;
+    enemy.strength = diff.strength;
+
+    clearLog();
+    updateHPBars();
+    showScreen(battleScreen);
+    battleLoop();
+
+    setTimeout(() => {
+        console.log('--- textContent vs innerText ---');
+        console.log('textContent (весь текст, включая скрытый):',
+                    battleLog.textContent.length, 'символов');
+        console.log('innerText (только видимый, с учётом CSS):',
+                    battleLog.innerText.length, 'символов');
+    }, 100);
+}
+
+// 14. НАСТРОЙКИ
+
+const difficultySelect = document.getElementsByName('difficulty')[0];
+const logToggle = document.getElementsByName('logToggle')[0];
+
+difficultySelect.addEventListener('change', (event) => {
+    currentDifficulty = event.target.value;
+    console.log('Сложность изменена на:', currentDifficulty,
+                '| timestamp события:', event.timeStamp);
+});
+
+logToggle.addEventListener('change', (event) => {
+    battleLog.style.opacity = event.target.checked ? '1' : '0';
+    battleLog.style.pointerEvents = event.target.checked ? 'auto' : 'none';
+});
+
+// focus / blur — подсветка кнопок действий
+Array.from(allActionBtns).forEach(btn => {
+    btn.addEventListener('focus', () => btn.classList.add('focused'));
+    btn.addEventListener('blur',  () => btn.classList.remove('focused'));
+});
+
+// touchstart — сенсорные события на враге
+enemyImg.addEventListener('touchstart', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addLog('Вы коснулись врага (touch).', 'system');
+}, { passive: false });
+
+// 15. ПРИВЯЗКА ОБРАБОТЧИКОВ — ТРИ СПОСОБА
+
+
+document.getElementById('start-btn').onclick = startBattle;
+
+document.getElementById('settings-btn').addEventListener('click', () => {
+    showScreen(settingsScreen);
+});
+document.getElementById('back-btn').addEventListener('click', () => {
+    showScreen(startScreen);
+});
+document.getElementById('restart-btn').addEventListener('click', () => {
+    showScreen(startScreen);
+});
+document.getElementById('victory-restart-btn').addEventListener('click', () => {
+    showScreen(startScreen);
+});
+
+
+// 16. before / after — подсказки хоткеев вокруг кнопок
+
+
+const hint1 = document.createElement('span');
+hint1.textContent = '[1]';
+hint1.style.cssText = 'color:#888;font-size:12px;align-self:center;margin-right:4px;';
+const hint3 = document.createElement('span');
+hint3.textContent = '[3]';
+hint3.style.cssText = 'color:#888;font-size:12px;align-self:center;margin-left:4px;';
+
+attackBtn.before(hint1);
+skipBtn.after(hint3);
+
+
+// 17. ИНИЦИАЛИЗАЦИЯ
+
+
+updateHPBars();
+</script>
+</body>
+</html>
